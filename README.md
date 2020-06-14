@@ -20,5 +20,19 @@ Moreover, I try to put a focus on the use of tidyverse packages, an appealing vi
 
 ## Description of the procedure
 
+Having read the description of the competition and the related text file, I knew from the beginning how to treat some of the NA values and the data type of each column.
+
+
+
+
+
+
+
+## Outlook
+Steps I will do in the futer:
+
+Try to use tidymodel to model
+Start a seconde project to go deeper into the xgboost
+Try to optimise me code via functions and maybe a customized package
 
 
