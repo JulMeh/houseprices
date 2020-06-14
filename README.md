@@ -16,7 +16,7 @@ With 79 explanatory variables describing (almost) every aspect of residential ho
 
 - Metric: Submissions are evaluated on Root-Mean-Squared-Error (RMSE) between the logarithm of the predicted value and the logarithm of the observed sales price. (Taking logs means that errors in predicting expensive houses and cheap houses will affect the result equally.)
 
-Moreover, I try to put a focus on the use of tidyverse packages, an appealing visualization of the data and to create a readable html file. 
+Moreover, I try to put a focus on the use of tidyverse packages, an appealing visualization of the data, and to create a readable html file. 
 
 ## Description of the procedure
 
@@ -25,15 +25,15 @@ Moreover, I try to put a focus on the use of tidyverse packages, an appealing vi
 2. I took a look at the histogram of the target variable and its qq plot. I also removed the remaining NA values.
 ![alt text](https://github.com/JulMeh/houseprices/blob/master/histoandqq.png "histoandqq")
 
-3. I engineered some feature like:
+3. I engineered some features like:
 
   i. TotalBath	Total nuber of bathrooms
   
   ii. RemodAdd	If a house was remodeled or not
   
-  iii. TotalSF	Size of the house in square feet above and below grade etc.
+  iii. TotalSF	Size of the house in square feet above and belowe grade etc.
 
-4. I took a look on the most important variables with a correlation matrix and a quick randomforst.
+4. I took a look on the most important variables with a correlation matrix and a quick random forest.
 ![alt text](https://github.com/JulMeh/houseprices/blob/master/Rf.png "Rf")
 
 5. Nevertheless I did some preprocessing and build the lasso regression and the xgboost model.
@@ -44,6 +44,6 @@ This project covers many points of a real world project. As you can tell from th
 
 - Try to use tidymodel to model
 
-- Start a seconde project to go deeper into the xgboost
+- Start a second project to go deeper into the xgboost
 
--  Try to optimise me code via functions and maybe a customized package
+- Try to optimise my code via functions and maybe a customized package
