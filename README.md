@@ -20,13 +20,18 @@ Moreover, I try to put a focus on the use of tidyverse packages, an appealing vi
 
 ## Description of the procedure
 
-Having read the description of the competition and the related text file, I knew from the beginning how to treat some of the NA values and the data type of each column.
+1. Having read the description of the competition and the related text file, I knew from the beginning how to treat some of the NA values and the data type of each column.
 
+2. I took a look at the histogram of the target variable and its qq plot. I also removed the remaining NA values.
 
+3. I engineered some feature like:
+  i. TotalBath	Total nuber of bathrooms
+  ii. RemodAdd	If a house was remodeled or not
+  iii. TotalSF	Size of the house in square feet above and below grade etc.
 
+4. I took a look on the most important variables with a correlation matrix and a quick randomforst. 
 
-
-
+5. Nevertheless I did some preprocessing and build the lasso regression and the xgboost model.
 
 ## Outlook
 Steps I will do in the futer:
