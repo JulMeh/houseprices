@@ -34,7 +34,7 @@ Moreover, I try to put a focus on the use of tidyverse packages, an appealing vi
 ![alt text](https://github.com/JulMeh/houseprices/blob/master/Rf.png "Rf")
 
 5. Nevertheless I did some preprocessing and build the lasso regression and the xgboost model.
-![alt text](https://github.com/JulMeh/houseprices/blob/master/mods.png "mods")
+![alt text](https://github.com/JulMeh/houseprices/blob/master/mods3.png "mods")
 
 ## Outlook
 Steps I will do in the futer:
