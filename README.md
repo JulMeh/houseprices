@@ -37,12 +37,10 @@ Moreover, I try to put a focus on the use of tidyverse packages, an appealing vi
 ![alt text](https://github.com/JulMeh/houseprices/blob/master/mods3.png "mods")
 
 ## Outlook
-Steps I will do in the futer:
+This project covers many points of a real world project. As you can tell from the work of your other projects, there is always potential for improvement:
 
 - Try to use tidymodel to model
 
 - Start a seconde project to go deeper into the xgboost
 
 -  Try to optimise me code via functions and maybe a customized package
-
-
