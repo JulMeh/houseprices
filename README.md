@@ -26,8 +26,11 @@ Moreover, I try to put a focus on the use of tidyverse packages, an appealing vi
 ![alt text](https://github.com/JulMeh/houseprices/blob/master/histoandqq.png "histoandqq")
 
 3. I engineered some feature like:
+
   i. TotalBath	Total nuber of bathrooms
+  
   ii. RemodAdd	If a house was remodeled or not
+  
   iii. TotalSF	Size of the house in square feet above and below grade etc.
 
 4. I took a look on the most important variables with a correlation matrix and a quick randomforst.
