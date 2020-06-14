@@ -30,9 +30,11 @@ Moreover, I try to put a focus on the use of tidyverse packages, an appealing vi
   ii. RemodAdd	If a house was remodeled or not
   iii. TotalSF	Size of the house in square feet above and below grade etc.
 
-4. I took a look on the most important variables with a correlation matrix and a quick randomforst. 
+4. I took a look on the most important variables with a correlation matrix and a quick randomforst.
+![alt text](https://github.com/JulMeh/houseprices/blob/master/Rf.png "Rf")
 
 5. Nevertheless I did some preprocessing and build the lasso regression and the xgboost model.
+![alt text](https://github.com/JulMeh/houseprices/blob/master/mods.png "mods")
 
 ## Outlook
 Steps I will do in the futer:
