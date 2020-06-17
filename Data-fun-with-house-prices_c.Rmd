@@ -1,0 +1,923 @@
+---
+title: "Data-fun-with-house-prices"
+author: "Julien"
+date: "`r  format(Sys.time(), '%Y-%m-%d')`"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r , include=FALSE}
+library(tinytex)
+library(knitr)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(corrplot)
+library(caret)
+library(gridExtra)
+library(scales)
+library(Rmisc)
+library(ggrepel)
+library(randomForest)
+library(psych)
+library(xgboost)
+library(ggthemes)
+library(tidyr)
+library(forcats)
+library(data.table)
+library(mltools)
+library(visdat)
+library(vip)
+library(readr)
+library(moments)
+
+theme_set(theme_minimal())
+```
+
+# Import Data {.tabset }
+
+By analyzing the text file belonging to the Challenge I will already make some adjustments when loading the data.
+
+There are some variables, which are scaled ordinally with 5 levels.
+
+| Variable | Meaning |
+| ------------- | ------------- |
+| ExterQual | Evaluates the quality of the material on the exterior |
+| ExterCond | Evaluates the present condition of the material on the exterior |
+| BsmtQual | Evaluates the height of the basement |
+| BsmtCond | Evaluates the general condition of the basement |
+| HeatingQC | Heating quality and condition |
+| KitchenQual | Kitchen quality |
+| FireplaceQu | Fireplace quality |
+| GarageQual | Garage quality |
+| GarageCond | Garage condition |
+| PoolQC | Pool quality |
+
+These are scaled as followed:
+
+* Ex	Excellent
+* Gd	Good
+* TA	Typical/Average
+* Fa	Fair
+* Po	Poor
+
+Other oridinal scaled variables are: 
+
+* OverallQual: Rates the overall material and finish of the house
+* OverallCond: Rates the overall condition of the house
+* BsmtExposure: Refers to walkout or garden level walls
+* BsmtFinType1: Rating of basement finished area
+* BsmtFinType2: Rating of basement finished area (if multiple types)
+* Fence: Fence quality
+
+## Train data
+
+```{r }
+ordLvl5 <- c("Po", "Fa", "TA", "Gd", "Ex")
+
+train <- read_csv(".../Documents/Kaggle/house prices/train.csv",
+    col_types = cols(
+        .default = col_factor(),
+        Id = col_double(),
+        LotFrontage = col_double(),
+        LotArea = col_double(),
+        OverallQual = col_factor(),
+        OverallCond = col_factor(),
+        YearBuilt = col_double(),
+        YearRemodAdd = col_double(),
+        MasVnrArea = col_double(),
+        ExterQual    = col_factor(ordLvl5),
+        ExterCond    = col_factor(ordLvl5),
+        BsmtQual     = col_factor(ordLvl5),
+        BsmtCond     = col_factor(ordLvl5),
+        BsmtExposure = col_factor(c("No", "Mn", "Av", "Gd")),
+        BsmtFinType1 = col_factor(c("Unf", "LwQ", "Rec", "BLQ", "ALQ", "GLQ")),
+        BsmtFinType2 = col_factor(c("Unf", "LwQ", "Rec", "BLQ", "ALQ", "GLQ")),
+        BsmtFinSF1 = col_double(),
+        BsmtFinSF2 = col_double(),
+        BsmtUnfSF = col_double(),
+        TotalBsmtSF = col_double(),
+        HeatingQC = col_factor(ordLvl5),
+        "1stFlrSF" = col_double(),
+        "2ndFlrSF" = col_double(),
+        LowQualFinSF = col_double(),
+        GrLivArea = col_double(),
+        BsmtFullBath = col_double(),
+        BsmtHalfBath = col_double(),
+        FullBath = col_double(),
+        HalfBath = col_double(),
+        BedroomAbvGr = col_double(),
+        KitchenAbvGr = col_double(),
+        KitchenQual = col_factor(ordLvl5),
+        TotRmsAbvGrd = col_double(),
+        Functional = col_factor(c("Typ", "Min1", "Min2", "Mod","Maj1", "Maj2", "Sev", "Sal")),
+        GarageYrBlt = col_double(),
+        GarageFinish = col_factor(c("Unf", "RFn", "Fin")),
+        GarageQual = col_factor(ordLvl5),
+        GarageCond = col_factor(ordLvl5),
+        PavedDrive = col_factor(c("N", "P", "Y")),
+        Fireplaces = col_double(),
+        FireplaceQu = col_factor(ordLvl5),
+        GarageCars = col_double(),
+        GarageArea = col_double(),
+        WoodDeckSF = col_double(),
+        OpenPorchSF = col_double(),
+        EnclosedPorch = col_double(),
+        "3SsnPorch" = col_double(),
+        ScreenPorch = col_double(),
+        PoolArea = col_double(),
+        PoolQC = col_factor(c("Fa", "TA", "Gd", "Ex")),
+        MiscVal = col_double(),
+        SalePrice = col_double()
+    ))
+```
+
+## Test data
+
+```{r loading test Data}
+test <- read_csv("C:/Users/julien.mehlis/Documents/Kaggle/house prices/test.csv",
+    col_types = cols(
+        .default = col_factor(),
+        Id = col_double(),
+        LotFrontage = col_double(),
+        LotArea = col_double(),
+        OverallQual =  col_factor(),
+        OverallCond =  col_factor(),
+        YearBuilt = col_double(),
+        YearRemodAdd = col_double(),
+        MasVnrArea = col_double(),
+        ExterQual    = col_factor(ordLvl5),
+        ExterCond    = col_factor(ordLvl5),
+        BsmtQual     = col_factor(ordLvl5),
+        BsmtCond     = col_factor(ordLvl5),
+        BsmtExposure = col_factor(c("No", "Mn", "Av", "Gd")),
+        BsmtFinType1 = col_factor(c("Unf", "LwQ", "Rec", "BLQ", "ALQ", "GLQ")),
+        BsmtFinType2 = col_factor(c("Unf", "LwQ", "Rec", "BLQ", "ALQ", "GLQ")),
+        BsmtFinSF1 = col_double(),
+        BsmtFinSF2 = col_double(),
+        BsmtUnfSF = col_double(),
+        TotalBsmtSF = col_double(),
+        HeatingQC = col_factor(ordLvl5),
+        "1stFlrSF" = col_double(),
+        "2ndFlrSF" = col_double(),
+        LowQualFinSF = col_double(),
+        GrLivArea = col_double(),
+        BsmtFullBath = col_double(),
+        BsmtHalfBath = col_double(),
+        FullBath = col_double(),
+        HalfBath = col_double(),
+        BedroomAbvGr = col_double(),
+        KitchenAbvGr = col_double(),
+        KitchenQual = col_factor(ordLvl5),
+        TotRmsAbvGrd = col_double(),
+        Functional = col_factor(c("Typ", "Min1", "Min2", "Mod","Maj1", "Maj2", "Sev", "Sal")),
+        GarageYrBlt = col_double(),
+        GarageFinish = col_factor(c("Unf", "RFn", "Fin")),
+        GarageQual = col_factor(ordLvl5),
+        GarageCond = col_factor(ordLvl5),
+        PavedDrive = col_factor(c("N", "P", "Y")),
+        Fireplaces = col_double(),
+        FireplaceQu = col_factor(ordLvl5),
+        GarageCars = col_double(),
+        GarageArea = col_double(),
+        WoodDeckSF = col_double(),
+        OpenPorchSF = col_double(),
+        EnclosedPorch = col_double(),
+        "3SsnPorch" = col_double(),
+        ScreenPorch = col_double(),
+        PoolArea = col_double(),
+        PoolQC = col_factor(c("Fa", "TA", "Gd", "Ex")),
+        MiscVal = col_double(),
+        SalePrice = col_double()
+    ))
+```
+
+## Quick removal of some NA's
+
+The text file also contains statements about NA values. These NA values are defined as "Non existing":
+
+| Variable | Meaning of NA |
+| ------------- | ------------- |
+| Alley | No alley access |
+| BsmtQual | No Basement |
+| BsmtCond | No Basement |
+| BsmtExposure | No Basement |
+| BsmtFinType1 | No Basement |
+| BsmtFinType2 | No Basement |
+| FireplaceQu | No Fireplace |
+| GarageType | No Garage |
+| GarageFinish | No Garage |
+| GarageQual | No Garage |
+| GarageCond | No Garage |
+| PoolQC | No Pool |
+| Fence | No Fence |
+| MiscFeature | None |
+
+In the following I am going to encode these NA values. But first I will merge the test and training data. Moreover I will change 1stFlrSF to X1stFlrSF, 2ndFlrSF to X2ndFlrSF and 3SsnPorch to X3SsnPorch.
+
+```{r ,echo = FALSE}
+ID_test <- test$Id
+test$SalePrice <- NA
+
+all <- rbind(train, test)
+all$X1stFlrSF <- all$"1stFlrSF"
+all$X2ndFlrSF <- all$"2ndFlrSF"
+all$X3SsnPorch <- all$"3SsnPorch"
+
+all$"1stFlrSF" <- NULL
+all$"2ndFlrSF" <- NULL
+all$"3SsnPorch" <- NULL
+all$Id <-NULL 
+
+all$Alley <- all$Alley %>%
+  fct_explicit_na(na_level = "NoAlleyAccess")
+
+all$BsmtQual <- all$BsmtQual %>%
+  fct_explicit_na(na_level = "NoBasement")
+all$BsmtCond <- all$BsmtCond %>%
+  fct_explicit_na(na_level = "NoBasement")
+all$BsmtExposure <- all$BsmtExposure %>%
+  fct_explicit_na(na_level = "NoBasement")
+all$BsmtFinType1 <- all$BsmtFinType1 %>%
+  fct_explicit_na(na_level = "NoBasement")
+all$BsmtFinType2 <- all$BsmtFinType2 %>%
+  fct_explicit_na(na_level = "NoBasement")
+
+all$FireplaceQu <- all$FireplaceQu %>%
+  fct_explicit_na(na_level = "NoFireplace")
+
+all$GarageType <- all$GarageType %>%
+  fct_explicit_na(na_level = "NoGarage")
+all$GarageType <- all$GarageType %>%
+  fct_explicit_na(na_level = "NoGarage")
+all$GarageFinish <- all$GarageFinish %>%
+  fct_explicit_na(na_level = "NoGarage")
+all$GarageQual <- all$GarageQual %>%
+  fct_explicit_na(na_level = "NoGarage")
+all$GarageCond <- all$GarageCond %>%
+  fct_explicit_na(na_level = "NoGarage")
+
+all$PoolQC <- all$PoolQC %>%
+  fct_explicit_na(na_level = "NoPool")
+all$Fence <- all$Fence %>%
+  fct_explicit_na(na_level = "NoFence")
+all$MiscFeature <- all$MiscFeature %>%
+  fct_explicit_na(na_level = "None")
+```
+
+# Quick EDA & dealing with NA's {.tabset }
+
+## Target variable: SalePrice
+
+```{r echo = FALSE, fig.width=9, fig.height=4}
+p1 <- all %>%
+   drop_na(SalePrice) %>%
+   ggplot(aes(x=SalePrice)) +
+   geom_histogram(fill="#619cff", bins = 30) +
+   scale_x_continuous(breaks= seq(0, 800000, by=100000), labels = comma) +
+   theme_minimal() +
+   labs(
+      title= "Histogram of Sale Prices")
+
+p2 <- all %>%
+   drop_na(SalePrice) %>%
+   ggplot(aes(sample=SalePrice)) +
+   stat_qq() +
+   stat_qq_line()+
+   theme_minimal()+
+   labs(
+      title= "Histogram of Sale Prices")
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+The target variable is left-skewed and has some outliers. 
+
+## NA {.tabset }
+
+After the first encoding of NA's there are still `r sum(is.na(all))-1460` NA's without the missing values of our target variable. These NA's I am going to analyse in the following.
+
+### Overview
+
+```{r echo = FALSE , warning=FALSE, fig.width=9, fig.height=4}
+all %>%
+  select(everything()) %>%
+  summarise_all(funs(sum(is.na(.)))) %>%
+  gather(var, count, 1:ncol(all), factor_key=TRUE) %>%
+  filter(count > 0) %>%
+  filter(var != "SalePrice") %>%
+  arrange(desc(count)) %>%
+  ggplot(aes(x=(reorder(var, count)), y=count)) +
+  geom_bar(stat="identity",fill="#619cff") + 
+  coord_flip() +
+   labs(
+      title= "NA's in Train Data") +
+   scale_x_discrete(name="")
+```
+
+There are only five variables in which NA values can still be found:
+* LotFrontage: Linear feet of street connected to property
+* GarageYrBlt: Year garage was built
+* MasVnrArea: Masonry veneer area in square feet
+* MasVnrType: Masonry veneer type
+* Electrical: Electrical system
+
+### LotFrontage & LotArea
+
+LotFrontage: Linear feet of street connected to property
+
+LotArea: Lot size in square feet
+
+```{r echo = FALSE}
+all %>%
+  select(LotFrontage, LotArea) %>%
+  group_by(LotFrontage, LotArea) %>%
+  filter(is.na(LotFrontage)) %>%
+  distinct(LotFrontage, LotArea) %>%
+  head()
+
+all %>%
+  select(LotFrontage, LotArea) %>%
+  group_by(LotFrontage, LotArea) %>%
+  filter(LotFrontage == 0) %>%
+  head()
+```
+
+Even if a house has no property boundary to the front, it can of course have other property boundaries.
+
+Since there is no 0 value at LotFrontage, I assume that the NA values represent this 0 value. For this reason I will set the NA's to 0.
+
+```{r}
+all$LotFrontage[is.na(all$LotFrontage)] <- 0
+```
+
+### GarageYrBlt
+
+```{r echo = FALSE}
+all %>%
+  select(GarageYrBlt, GarageType) %>%
+  group_by(GarageYrBlt, GarageType) %>%
+  filter(is.na(GarageYrBlt)) %>%
+  distinct(GarageYrBlt)
+```
+
+If GarageYrBlt has a NA value, there is no garage. But since there is a year in which it was built, I will not simply mark NA's with 0. I am going to remove this variable from the dataset because there are other variables that provide informations of the garage.
+
+```{r echo = FALSE}
+all$GarageYrBlt <- NULL
+```
+
+### MasVnrArea & MasVnrType
+
+```{r echo = FALSE,warning=FALSE}
+all %>%
+  select(MasVnrArea, MasVnrType) %>%
+  group_by(MasVnrArea, MasVnrType) %>%
+  filter(is.na(MasVnrArea)) %>%
+  distinct(MasVnrArea, MasVnrType)
+
+all %>%
+  select(MasVnrArea, MasVnrType) %>%
+  group_by(MasVnrArea, MasVnrType) %>%
+  filter(is.na(MasVnrType)) %>%
+  distinct(MasVnrArea, MasVnrType)
+```
+
+There is a relationship between the NA's of MasVnrArea and MasVnrType.
+
+```{r echo = FALSE}
+all %>%
+   drop_na(SalePrice) %>% 
+   ggplot(aes(x=as.factor(MasVnrType), y=SalePrice, color=as.factor(MasVnrType))) +
+   geom_boxplot()+
+   geom_label(stat = "count", aes(label = ..count.., y = ..count..))+
+   scale_y_continuous(breaks= seq(0, 800000, by=100000), labels = comma) +
+   coord_flip() +
+   theme_minimal() +
+   labs(
+      title= "MasVnrType vs. Sale Price",
+      subtitle = paste("Additionally the number per group is shown - the total number is:", nrow(all),"")) +
+   theme(legend.position="none") +
+   scale_x_discrete(name="")
+```
+
+```{r echo = FALSE}
+all %>%
+   drop_na(SalePrice) %>% 
+   ggplot(aes(x=MasVnrArea, y=SalePrice))+
+   geom_point(aes(colour = factor(MasVnrType)), na.rm = TRUE) +
+   geom_smooth(method = "lm", formula = y ~ x, se=FALSE, color="#f8766c", aes(group=1), na.rm = TRUE)+
+   scale_y_continuous(breaks= seq(0, 800000, by=100000), labels = comma) +
+      theme_minimal() +
+   labs(  
+      title= "MasVnrArea vs. SalePrice by MasVnrType")+ facet_grid(MasVnrType ~ .)+
+   theme(legend.position="none")
+```
+
+I will set the remaining NA's of MasVnrArea to zero. In addtion I saw that there are some "None" of MasVnrType have a MasVnrArea. This can not be right so I am going to set them to zero as well.
+
+```{r}
+all$MasVnrType <- ifelse(is.na(all$MasVnrType), "None", all$MasVnrType)
+```
+
+```{r}
+all$MasVnrArea <- ifelse(all$MasVnrType == "None", 0,all$MasVnrArea) 
+```
+
+### Electrical
+
+Electrical: Electrical system
+
+| Abbreviation | Meaning |
+| ------------- | ------------- |
+| SBrkr | Standard Circuit Breakers & Romex |
+| FuseA | Fuse Box over 60 AMP and all Romex wiring (Average)	 |
+| FuseF | 60 AMP Fuse Box and mostly Romex wiring (Fair) |
+| FuseP | 60 AMP Fuse Box and mostly knob & tube wiring (poor) |
+| Mix | Mixed |
+       
+```{r echo = FALSE}
+all %>%
+   drop_na(SalePrice) %>% 
+   ggplot(aes(x=as.factor(Electrical), y=SalePrice, color=as.factor(Electrical))) +
+   geom_boxplot()+
+   geom_label(stat = "count", aes(label = ..count.., y = ..count..))+
+   scale_y_continuous(breaks= seq(0, 800000, by=100000), labels = comma) +
+   coord_flip() +
+   labs(
+      title= "Electrical vs. Sale Price",
+      subtitle = paste("Additionally the number per group is shown - the total number is:", nrow(all),"")) +
+   theme(legend.position="none") +
+   scale_x_discrete(name="")
+```
+       
+It looks like that all NA's in Electrical are belonging to SBrkr
+
+```{r }
+all$Electrical <- all$Electrical %>%
+  fct_explicit_na(na_level = "SBrkr")
+```
+
+### Other NA's
+
+In the other columns NA values only appear very sporadically. For this reason, and for reasons of time savings, I will convert them to "None" or "0" or categorize them into the largest group.
+
+```{r echo = FALSE}
+all$SaleType[is.na(all$SaleType)] <- names(sort(-table(all$SaleType)))[1]
+```
+
+```{r include=FALSE}
+all$Functional <- as.factor(ifelse(is.na(all$Functional), "None", all$Functional))
+all$MSZoning <- as.factor(ifelse(is.na(all$MSZoning), "None", all$MSZoning))
+all$Utilities <- as.factor(ifelse(is.na(all$Utilities), "None", all$Utilities))
+all$KitchenQual <- as.factor(ifelse(is.na(all$KitchenQual), "None", all$KitchenQual))
+all$BsmtFinType1 <- as.factor(ifelse(is.na(all$BsmtFinType1), "None", all$BsmtFinType1))
+all$BsmtFinType2 <- as.factor(ifelse(is.na(all$BsmtFinType2), "None", all$BsmtFinType2))
+all$Exterior2nd <- as.factor(ifelse(is.na(all$Exterior2nd), "None", all$Exterior2nd))
+all$Exterior1st <- as.factor(ifelse(is.na(all$Exterior1st), "None", all$Exterior1st))
+
+all$MasVnrType <- as.factor(all$MasVnrType)
+```
+
+```{r include=FALSE}
+numNaTo0 = function(
+  dfcol
+  ) {
+  dfcol <- dfcol
+  
+  dfcol[is.na(dfcol)] <- 0
+  dfcol <- as.numeric(dfcol)
+  }
+
+all$GarageArea <- numNaTo0(all$GarageArea)
+all$BsmtFullBath <- numNaTo0(all$BsmtFullBath)
+all$BsmtHalfBath <- numNaTo0(all$BsmtHalfBath)
+all$TotalBsmtSF <- numNaTo0(all$TotalBsmtSF)
+all$GarageCars <- numNaTo0(all$GarageCars)
+all$BsmtUnfSF <- numNaTo0(all$BsmtUnfSF)
+all$BsmtFinSF1 <- numNaTo0(all$BsmtFinSF1)
+all$BsmtFinSF2 <- numNaTo0(all$BsmtFinSF2)
+```
+
+# Feature Engineering {.tabset }
+
+| Variable | Meaning of NA |
+| ------------- | ------------- |
+| YrSoRe | Time between last remodel and sale. |
+| YrSoBu |Time between the house was build and sale |
+| TotalBath | Total nuber of bathrooms |
+| RemodAdd | If a house was remodeled or not |
+| TotalSF |  Size of the house in square feet above and below grade |
+| avgRoomSF | Average room size |
+| HasFirePl | If there is a Pool in the house or not  |
+| Pool | If there is a Pool in the house or not |
+| BsmtBath | If there is a bathroom in the basement or not |
+
+```{r}
+all$TotalBath <- as.numeric(all$FullBath + all$HalfBath/2 + all$BsmtFullBath + all$BsmtHalfBath/2)
+all$RemodAdd <- as.factor(ifelse(all$YearBuilt == all$YearRemodAdd, 0, 1))
+all$TotalSF <- as.numeric(all$GrLivArea + all$TotalBsmtSF)
+all$avgRoomSF <- as.numeric(all$GrLivArea / all$TotRmsAbvGrd)
+all$HasFirePl <- factor(all$Fireplaces > 0)
+all$Pool <- factor(all$PoolArea > 0)
+all$BsmtBath <- factor((all$BsmtHalfBath + all$BsmtFullBath) > 0)
+```
+
+# Most important variables {.tabset }
+
+## Correlations with SalePrice
+
+In the following all numerical variables which have a higher absolute correlation than 0.5 are visulized.
+
+```{r echo = FALSE, fig.width=6, fig.height=6}
+DFcor <-  all %>%
+   select_if(is.numeric)
+
+cor_numVar <- cor(DFcor, use="pairwise.complete.obs") 
+cor_sorted <- as.matrix(sort(cor_numVar[,"SalePrice"], decreasing = TRUE))
+
+
+highCor <- names(which(apply(cor_sorted, 1, function(x) abs(x)>0.5)))
+cor_numVar <- cor_numVar[highCor, highCor]
+
+corrplot.mixed(cor_numVar,
+               tl.col="black",
+               tl.pos = "lt",
+               number.cex  = 0.8,)
+```
+
+## Important variables
+
+I will use a random forest to identify the important variables and take a closer look at them afterwards.
+
+```{r echo = FALSE, warning=FALSE, fig.width=9, fig.height=4}
+set.seed(2018)
+
+allRF <- all %>%
+  drop_na(SalePrice) 
+
+quick_RF <- randomForest(x=allRF, y=allRF$SalePrice, ntree=100 , importance=TRUE)
+imp_RF <- importance(quick_RF)
+imp_DF <- data.frame(Variables = row.names(imp_RF), MSE = imp_RF[,1])
+imp_DF <- imp_DF[order(imp_DF$MSE, decreasing = TRUE),]
+
+ggplot(imp_DF[1:20,], aes(x=reorder(Variables, MSE), y=MSE)) +
+  geom_bar(stat = "identity",fill="#619cff") +
+  labs(x = "Variables", y= "% increase MSE if variable is randomly permuted") +
+  coord_flip() +
+  theme(legend.position="none")
+```
+
+# Modelling {.tabset }
+
+## Preprocessing {.tabset }
+
+```{r echo = FALSE}
+all$OverallQual <- as.numeric(all$OverallQual)
+all$OverallCond <- as.numeric(all$OverallCond)
+
+all$ExterQual <- as.numeric(all$ExterQual  %>%
+  recode_factor("Po" = 1, "Fa" = 2, "TA" = 3, "Gd" = 4, "Ex" = 5))
+all$ExterCond <- as.numeric(all$ExterCond  %>%
+  recode_factor("Po" = 1, "Fa" = 2, "TA" = 3, "Gd" = 4, "Ex" = 5))
+all$HeatingQC <- as.numeric(all$HeatingQC  %>%
+  recode_factor("Po" = 1, "Fa" = 2, "TA" = 3, "Gd" = 4, "Ex" = 5))
+all$KitchenQual <- as.numeric(all$KitchenQual  %>%
+  recode_factor("Po" = 1, "Fa" = 2, "TA" = 3, "Gd" = 4, "Ex" = 5))
+
+all$BsmtQual <- as.numeric(all$BsmtQual  %>%
+  recode_factor("NoBasement" = 0, "Po" = 1, "Fa" = 2, "TA" = 3, "Gd" = 4, "Ex" = 5))
+all$BsmtCond <- as.numeric(all$BsmtCond  %>%
+  recode_factor("NoBasement" = 0, "Po" = 1, "Fa" = 2, "TA" = 3, "Gd" = 4, "Ex" = 5))
+```
+
+### Outliers in the target variable
+
+Due to the description of the compitition it is clear that there are outlieres in the data. I am goning to visulize and remove them. 
+
+```{r echo = FALSE}
+all %>%
+  drop_na(SalePrice) %>%
+  ggplot(aes(x=TotalSF, y=SalePrice))+
+   geom_point(col="#619cff") +
+  geom_smooth(method = "lm", formula = y ~ x, se=FALSE, color="#f8766c", aes(group=1))+
+  scale_y_continuous(breaks= seq(0, 800000, by=100000), labels = comma) +
+  geom_text_repel(aes(label = ifelse(all$GrLivArea[!is.na(all$SalePrice)]>4500, rownames(all), '')))+
+     labs(
+      title= "TotalSF vs. Sale Price")
+```
+
+```{r echo = FALSE}
+all <- all[-c(524, 1299),]
+```
+
+### Higthly correlated variables
+
+Moreover we saw higthly correlated variables which I am going to drop too. 
+
+```{r}
+drop <- c( "GarageArea", "GarageCond", "TotalBsmtSF", "BsmtFinSF1", "LotFrontage", "LotArea") 
+ 
+all <- all %>%
+   select(-one_of(drop))
+```
+
+```{r echo = FALSE}
+# Data split into data types
+ordinalVar <- c("OverallQual", "OverallCond", "ExterQual", "ExterCond", "HeatingQC", "KitchenQual", "BsmtQual", "BsmtCond")
+
+SalePrice <- all$SalePrice
+
+DFnum <- all %>%
+  select_if(is.numeric) %>%
+  select(-one_of(ordinalVar)) %>%
+  select(-SalePrice)
+
+DFfactors <- all %>%
+  select_if(is.factor)
+
+DFord <- all %>%
+  select(one_of(ordinalVar)) 
+```
+
+### Skewness and normalizing of the numeric predictors
+
+```{r }
+for(i in 1:ncol(DFnum)){
+        if (abs(skew(DFnum[,i])) > 0.8){
+                DFnum[,i] <- log(DFnum[,i] +1)
+        }
+   }
+```
+
+```{r }
+DFnorm <- as.data.frame(scale(as.matrix(DFnum), center = TRUE, scale = TRUE))
+```
+
+### One hot encoding
+
+```{r }
+DFdummies <- as.data.frame(model.matrix(~.-1, DFfactors))
+DFdummies <- one_hot(as.data.table(DFfactors))
+```
+
+### Removing levels with few or no observations in train or test
+
+```{r }
+filterLow <- DFdummies %>%
+  summarise_all(funs(sum)) %>%
+  gather() %>%
+  filter(value > 10) %>%
+  select(key)
+
+filterLow <- filterLow$key
+
+DFdummies <- DFdummies %>%
+  select(one_of(filterLow)) 
+```
+
+### Dealing with skewness of target variable
+
+```{r }
+moments::skewness(train$SalePrice)
+kurtosis(train$SalePrice)
+```
+
+looking at the value of skewness of the target variable it is easy to see that it is left skewed. Therefore I will use the log function to get a normal distrbution. 
+
+```{r echo = FALSE, warning=FALSE, fig.width=9, fig.height=4}
+p1 <- all %>% 
+   drop_na(SalePrice) %>%
+   ggplot(aes(x=SalePrice)) +
+   geom_histogram(fill="#619cff", bins = 30) +
+   scale_x_continuous(breaks= seq(0, 800000, by=100000), labels = comma) +
+   theme_minimal() +
+   labs(
+      title= "Histogram of SalePrice")
+
+p2 <- all %>%
+   drop_na(SalePrice) %>%
+   ggplot(aes(sample=SalePrice)) +
+   stat_qq() +
+   stat_qq_line()+
+   theme_minimal()+
+   labs(
+      title= "QQ-Plot of SalePrice")
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r}
+moments::skewness(log(train$SalePrice))
+kurtosis(log(train$SalePrice))
+```
+
+```{r, echo = FALSE}
+SalePrice <- log(all$SalePrice)
+```
+
+```{r, echo = FALSE}
+#combine data an split them into train1 and test1
+combined <- cbind(DFnorm, DFdummies, SalePrice)
+
+train1 <- combined %>%
+  filter(!is.na(SalePrice))
+
+test1 <- combined %>%
+  filter(is.na(SalePrice))
+```
+
+## Lasso
+
+```{r echo = FALSE}
+modLasso <- readRDS("modLasso.rds")
+```
+
+```{r}
+modLasso <- train(SalePrice ~.,
+                   data = train1,
+                   method="glmnet",
+                   trControl= trainControl(method="cv", number=5),
+                   tuneGrid=expand.grid(alpha = 1,
+                                        lambda = 0.0045)
+                                        )
+saveRDS(modLasso, "/Users/julien.mehlis/Documents/Kaggle/house prices/modLasso.rds")
+```
+
+```{r echo = FALSE}
+LassoPred <- predict(modLasso, newdata =  test1)
+LassoPred <- exp(LassoPred)
+```
+
+## XGBoost
+
+```{r echo = FALSE}
+modXgb <- readRDS("modXgb.rds")
+```
+
+Setting up a grid that tunes both these parameters, and also the eta (learning rate).
+
+```{r}
+xgb_grid = expand.grid(
+  nrounds = 500,
+  eta = c(0.1, 0.05, 0.01),
+  max_depth = c(2, 3, 6),
+  gamma = 0,
+  colsample_bytree=1,
+  min_child_weight=c(1, 3, 5),
+  subsample=1)
+```
+
+The next step is to let caret find the best hyperparameter values (using 5 fold cross validation).
+
+```{r}
+my_control <-trainControl(
+  method="cv",
+  number=5)
+
+train1a <- train1 %>%
+  select(-SalePrice)
+```
+
+```{r ,eval=FALSE}
+modXgb <- train(x=train1a,
+                   y=train1$SalePrice,
+                   method="xgbTree",
+                   trControl= my_control,
+                   tuneGrid=xgb_grid)
+
+saveRDS(modXgb, "/Users/julien.mehlis/Documents/Kaggle/house prices/modXgb.rds")
+mean(modXgb$results$RMSE)
+```
+
+```{r}
+modXgb$bestTune
+```
+
+As expected, this took quite a bit of time (locally). As I want to limit the running time on Kaggle, I disabled the code, and am just continuing with the results. According to caret, the ‘bestTune’ parameters are:
+
+Actually this would take very long but for this demonstration I have tried to shorten the time.
+
+According to caret, the 'bestTune' parameters are:
+
+* Max_depth = 2
+* eta = 0.1
+* Min_child_weight = 5
+
+
+```{r echo = FALSE}
+default_param<-list(
+        objective = "reg:linear",
+        booster = "gbtree",
+        eta=0.1,
+        gamma=0,
+        max_depth=2,
+        min_child_weight=5,
+        subsample=1,
+        colsample_bytree=1
+        )
+```
+
+Moreover, I adopt the best tuned values from the caret-cross validation.
+
+```{r}
+dtrain <- xgb.DMatrix(data = as.matrix(train1a),
+                      label= train1$SalePrice)
+
+test1a <- test1 %>%
+  select(-SalePrice)
+dtest <- xgb.DMatrix(data = as.matrix(test1a))
+```
+
+The next step is cross-validation to determine the best number of rounds (for the given parameter set).
+
+```{r}
+set.seed(51069)
+xgbcv <- xgboost::xgboost(params = default_param,
+                data = dtrain,
+                nrounds = 500,
+                nfold = 5,
+                showsd = T,
+                stratified = T,
+                print_every_n = 40,
+                early_stopping_rounds = 20,
+                maximize = F)
+```
+
+```{r echo = FALSE}
+xgbPred <- predict(xgbcv,dtest)
+xgbPred <- exp(xgbPred)
+xgbTrainPred <- predict(xgbcv,dtrain)
+xgbTrainPred <- xgbTrainPred
+```
+
+```{r}
+xgb_mod <- xgb.train(data = dtrain,
+                     params=default_param,
+                     nrounds = 454)
+
+XGBpred <- predict(xgb_mod, dtest)
+predictions_XGB <- exp(XGBpred)
+```
+
+```{r echo = FALSE}
+xgbPred <- predict(modXgb, newdata =  test1)
+xgbPred <- exp(xgbPred)
+```
+
+## Summery
+
+### Model selection
+
+Looking at the model performance by using the train data to compare the Root Mean Square Error the xgboost performs better and should be used for prediction.
+
+```{r echo = FALSE, warning=FALSE}
+mods <- c("Lasso", "Xgboost")
+
+RMSE_modLasso <- round(modLasso$results$RMSE,3)
+RMSE_modxgb <- round(sqrt(mean((train1$SalePrice-xgbTrainPred)^2)),3)
+
+RMSE <- c(RMSE_modLasso, RMSE_modxgb)
+        
+DFrmes <- data.frame(mods,RMSE)
+
+DFrmes %>%
+  ggplot(aes(x=mods, y=RMSE, fill= mods)) +
+  geom_bar(stat="identity")+
+  geom_text(aes(label=RMSE), vjust=1.6, color="white", size=5)+
+   labs(
+      title= "RMSE")+
+  theme(legend.position="none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text=element_text(size=14))
+```
+
+Looking at the important variables of both models (ignoring the scaling of the x axis) it is quite interesting that they differ from each other and should be noted. 
+
+```{r echo = FALSE , warning=FALSE}
+p1 <- vip(modLasso, num_features = 10, fill = "#F8766D") + ggtitle("Variable importance of Lasso")
+p2 <- vip(xgbcv, num_features = 10, fill = "#00BFC4") + ggtitle("Variable importance of xgb")
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r echo = FALSE}
+sub_avg <- data.frame(Id = ID_test, SalePrice = xgbPred)
+write.csv(sub_avg, file = "xgbPred.csv", row.names = F)
+```
+
+### Outlook
+
+Steps I will do in the futer: 
+
+* Try to use tidymodel to model
+* Start a seconde project to go deeper into the xgboost
+* Try to optimise me code via functions and maybe a customized package
